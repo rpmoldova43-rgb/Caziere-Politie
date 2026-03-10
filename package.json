@@ -1,10 +1,13 @@
 {
-  "name": "caziere-politie",
+  "name": "police-discord-bot",
   "version": "1.0.0",
+  "description": "Police system - cazier mandate incidente",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
+  "author": "Mish.Ha.Nya",
+  "license": "MIT",
   "dependencies": {
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5"
