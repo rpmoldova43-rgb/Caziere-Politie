@@ -19,6 +19,7 @@ const {
   TextInputBuilder,
   TextInputStyle,
   StringSelectMenuBuilder,
+  MessageFlags,
 } = require('discord.js');
 
 const {
@@ -207,9 +208,9 @@ function hasPoliceAccess(member) {
 
 async function denyAccess(interaction, text = '⛔ Nu ai acces la acest sistem.') {
   if (interaction.deferred || interaction.replied) {
-    return interaction.followUp({ content: text, ephemeral: true }).catch(() => null);
+    return interaction.followUp({ content: text, flags: MessageFlags.Ephemeral }).catch(() => null);
   }
-  return interaction.reply({ content: text, ephemeral: true }).catch(() => null);
+  return interaction.reply({ content: text, flags: MessageFlags.Ephemeral }).catch(() => null);
 }
 
 function requirePolice(interaction) {
@@ -485,7 +486,7 @@ async function handleCazierView(interaction, gameName) {
   if (!entries.length) {
     return interaction.reply({
       embeds: [buildPoliceEmbed('📁 Cazier inexistent', `Nu există înregistrări pentru **${gameName}**.`, COLOR.neutral)],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -500,7 +501,7 @@ async function handleCazierView(interaction, gameName) {
       buildPoliceEmbed(`📁 Cazier | ${gameName}`, text.slice(0, 4000), COLOR.primary)
         .setFooter({ text: `Total înregistrări: ${entries.length}` }),
     ],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -514,7 +515,7 @@ async function handleHistoryView(interaction, gameName) {
 
   return interaction.reply({
     embeds: [buildHistoryEmbed(gameName, entries, mandates, incidents)],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -545,7 +546,7 @@ async function handleSearchCazier(interaction, query) {
   if (!results.length) {
     return interaction.reply({
       embeds: [buildPoliceEmbed('🔎 Căutare cazier', `Nu am găsit niciun rezultat pentru: **${query}**`, COLOR.warning)],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -556,7 +557,7 @@ async function handleSearchCazier(interaction, query) {
 
   return interaction.reply({
     embeds: [buildPoliceEmbed('🔎 Rezultate căutare cazier', desc, COLOR.primary)],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -598,7 +599,7 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'setup-politie') {
         if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-          return interaction.reply({ content: '⛔ Doar administratorii pot folosi această comandă.', ephemeral: true });
+          return interaction.reply({ content: '⛔ Doar administratorii pot folosi această comandă.', flags: MessageFlags.Ephemeral });
         }
 
         const result = await createPoliceStructure(interaction.guild);
@@ -609,24 +610,24 @@ client.on('interactionCreate', async (interaction) => {
             `• Caziere: <#${result.cazier.id}>\n` +
             `• Mandate: <#${result.mandate.id}>\n` +
             `• Incidente: <#${result.incidente.id}>`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
       if (interaction.commandName === 'panel-politie') {
         if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-          return interaction.reply({ content: '⛔ Doar administratorii pot folosi această comandă.', ephemeral: true });
+          return interaction.reply({ content: '⛔ Doar administratorii pot folosi această comandă.', flags: MessageFlags.Ephemeral });
         }
 
         let channel = null;
         if (POLICE_PANEL_CHANNEL_ID) channel = await client.channels.fetch(POLICE_PANEL_CHANNEL_ID).catch(() => null);
         if (!channel) channel = interaction.channel;
         if (!channel?.isTextBased()) {
-          return interaction.reply({ content: '⛔ Canal invalid pentru panel.', ephemeral: true });
+          return interaction.reply({ content: '⛔ Canal invalid pentru panel.', flags: MessageFlags.Ephemeral });
         }
 
         await sendPolicePanel(channel);
-        return interaction.reply({ content: '✅ Panelul Poliției a fost trimis.', ephemeral: true });
+        return interaction.reply({ content: '✅ Panelul Poliției a fost trimis.', flags: MessageFlags.Ephemeral });
       }
 
       if (interaction.commandName === 'cazier-cauta') {
@@ -649,7 +650,7 @@ client.on('interactionCreate', async (interaction) => {
         if (!list.length) {
           return interaction.reply({
             embeds: [buildPoliceEmbed('📜 Mandate', `Nu există mandate cu statusul **${status}**.`, COLOR.neutral)],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         }
 
@@ -661,7 +662,7 @@ client.on('interactionCreate', async (interaction) => {
               COLOR.primary,
             ),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -820,7 +821,7 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({
           embeds: [buildPoliceEmbed('📜 Filtrare mandate', 'Selectează statusul dorit din meniul de mai jos.', COLOR.primary)],
           components: [row],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -948,7 +949,7 @@ client.on('interactionCreate', async (interaction) => {
         );
 
         await sendLog(CAZIER_CHANNEL_ID, embed);
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       }
 
       if (type === 'cazier_search') {
@@ -1020,7 +1021,7 @@ client.on('interactionCreate', async (interaction) => {
         );
 
         await sendLog(MANDATE_CHANNEL_ID, embed);
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       }
 
       if (type === 'incident_add') {
@@ -1075,7 +1076,7 @@ client.on('interactionCreate', async (interaction) => {
           }
         }
 
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       }
     }
   } catch (err) {
@@ -1084,13 +1085,13 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.deferred || interaction.replied) {
       return interaction.followUp({
         content: '❌ A apărut o eroare la executarea acțiunii.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       }).catch(() => null);
     }
 
     return interaction.reply({
       content: '❌ A apărut o eroare la executarea acțiunii.',
-      ephemeral: true,
+     flags: MessageFlags.Ephemeral,
     }).catch(() => null);
   }
 });
