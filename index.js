@@ -1,6 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 const {
   Client,
   GatewayIntentBits,
@@ -37,12 +38,25 @@ const {
   INCIDENTE_CHANNEL_ID,
   POLICE_PANEL_CHANNEL_ID,
   DEFAULT_MANDATE_EXPIRE_MINUTES,
+  DATABASE_URL,
 } = process.env;
 
 if (!DISCORD_TOKEN || !CLIENT_ID || !GUILD_ID) {
   console.error('❌ Lipsesc DISCORD_TOKEN / CLIENT_ID / GUILD_ID în .env');
   process.exit(1);
 }
+
+if (!DATABASE_URL) {
+  console.error('❌ Lipsește DATABASE_URL în .env');
+  process.exit(1);
+}
+
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: DATABASE_URL.includes('railway.internal')
+    ? false
+    : { rejectUnauthorized: false },
+});
 
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'police-db.json');
@@ -72,6 +86,30 @@ function readDb() {
 
 function writeDb(data) {
   fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
+async function initDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS caziere (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      added_by TEXT,
+      added_at BIGINT NOT NULL
+    );
+  `);
+
+  console.log('✅ Tabelul caziere este gata.');
+}
+
+async function addCazierToDb(userId, reason, addedBy) {
+  await pool.query(
+    `
+    INSERT INTO caziere (user_id, reason, added_by, added_at)
+    VALUES ($1, $2, $3, $4)
+    `,
+    [userId, reason, addedBy || null, Date.now()]
+  );
 }
 
 function parseRoleIds(raw) {
@@ -886,8 +924,14 @@ client.on('interactionCreate', async (interaction) => {
           createdAt: nowIso(),
         };
 
-        db.cazier.push(entry);
-        writeDb(db);
+          db.cazier.push(entry);
+          writeDb(db);
+
+          await addCazierToDb(
+            gameName,
+            `${fapta} | Sancțiune: ${sanctiune} | Detalii: ${detalii}`,
+            interaction.user.id
+          );
 
         const embed = buildPoliceEmbed(
           '📁 Înregistrare de cazier adăugată',
@@ -1053,6 +1097,7 @@ client.on('interactionCreate', async (interaction) => {
 
 (async () => {
   try {
+    await initDatabase();
     await registerCommands();
     await client.login(DISCORD_TOKEN);
   } catch (err) {
@@ -1060,3 +1105,4 @@ client.on('interactionCreate', async (interaction) => {
     process.exit(1);
   }
 })();
+
