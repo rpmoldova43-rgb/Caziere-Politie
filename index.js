@@ -1105,4 +1105,3 @@ client.on('interactionCreate', async (interaction) => {
     process.exit(1);
   }
 })();
-
