@@ -113,6 +113,12 @@ async function addCazierToDb(userId, reason, addedBy) {
   );
 }
 
+await addCazierToDb(
+  interaction.user.id,
+  `${fapta} | Sancțiune: ${sanctiune} | Detalii: ${detalii}`,
+  interaction.user.id
+);
+
 function parseRoleIds(raw) {
   return String(raw || '')
     .split(',')
