@@ -587,7 +587,7 @@ async function createIncidentThread(message, incident, interaction) {
   return thread;
 }
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   console.log(`✅ Bot online ca ${client.user.tag}`);
   await autoExpireMandates();
   setInterval(autoExpireMandates, 60 * 1000);
