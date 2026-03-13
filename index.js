@@ -104,13 +104,22 @@ async function initDatabase() {
 }
 
 async function addCazierToDb(userId, reason, addedBy) {
-  await pool.query(
-    `
-    INSERT INTO caziere (user_id, reason, added_by, added_at)
-    VALUES ($1, $2, $3, $4)
-    `,
-    [userId, reason, addedBy || null, Date.now()]
-  );
+  try {
+    const result = await pool.query(
+      `
+      INSERT INTO caziere (user_id, reason, added_by, added_at)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, user_id, added_by, added_at
+      `,
+      [userId, reason, addedBy || null, Date.now()]
+    );
+
+    console.log("✅ Cazier salvat în Postgres:", result.rows[0]);
+    return result.rows[0];
+  } catch (err) {
+    console.error("❌ Eroare la salvarea cazierului în Postgres:", err);
+    throw err;
+  }
 }
 
 await addCazierToDb(
@@ -934,11 +943,16 @@ client.on('interactionCreate', async (interaction) => {
           db.cazier.push(entry);
           writeDb(db);
 
-          await addCazierToDb(
-            gameName,
-            `${fapta} | Sancțiune: ${sanctiune} | Detalii: ${detalii}`,
-            interaction.user.id
-          );
+        db.cazier.push(entry);
+        writeDb(db);
+
+        const savedPg = await addCazierToDb(
+          gameName,
+          `${fapta} | Sancțiune: ${sanctiune} | Detalii: ${detalii}`,
+          interaction.user.id
+        );
+
+        console.log("✅ Inserare confirmată în Postgres pentru:", savedPg);
 
         const embed = buildPoliceEmbed(
           '📁 Înregistrare de cazier adăugată',
