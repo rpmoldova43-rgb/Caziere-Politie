@@ -1,4 +1,5 @@
 require('dotenv').config();
+console.log('INDEX CAZIERE POSTGRES NOU');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
