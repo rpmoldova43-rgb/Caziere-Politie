@@ -61,6 +61,7 @@ const pool = new Pool({
 
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'police-db.json');
+const STATS_FILE = '/app/patrol-stats.json';
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(DB_FILE)) {
@@ -89,6 +90,37 @@ function writeDb(data) {
   fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
+function readStats() {
+  try {
+    if (!fs.existsSync(STATS_FILE)) return {};
+    return JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function writeStats(data) {
+  fs.writeFileSync(STATS_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
+function addHoursToOfficer(userId, hours) {
+  const stats = readStats();
+
+  if (!stats[userId]) {
+    stats[userId] = {
+      officerId: userId,
+      patrolCount: 0,
+      totalMs: 0,
+      lastPatrolAt: null,
+    };
+  }
+
+  const ms = hours * 60 * 60 * 1000;
+  stats[userId].totalMs += ms;
+
+  writeStats(stats);
+}
+
 async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS caziere (
@@ -114,19 +146,13 @@ async function addCazierToDb(userId, reason, addedBy) {
       [userId, reason, addedBy || null, Date.now()]
     );
 
-    console.log("✅ Cazier salvat în Postgres:", result.rows[0]);
+    console.log('✅ Cazier salvat în Postgres:', result.rows[0]);
     return result.rows[0];
   } catch (err) {
-    console.error("❌ Eroare la salvarea cazierului în Postgres:", err);
+    console.error('❌ Eroare la salvarea cazierului în Postgres:', err);
     throw err;
   }
 }
-
-await addCazierToDb(
-  interaction.user.id,
-  `${fapta} | Sancțiune: ${sanctiune} | Detalii: ${detalii}`,
-  interaction.user.id
-);
 
 function parseRoleIds(raw) {
   return String(raw || '')
@@ -543,7 +569,6 @@ async function handleSearchCazier(interaction, query) {
   for (const entry of db.cazier || []) {
     const key = normalizeText(entry.gameName);
     if (!key) continue;
-
     if (!key.includes(normalized)) continue;
 
     if (!grouped.has(key)) {
@@ -940,9 +965,6 @@ client.on('interactionCreate', async (interaction) => {
           createdAt: nowIso(),
         };
 
-          db.cazier.push(entry);
-          writeDb(db);
-
         db.cazier.push(entry);
         writeDb(db);
 
@@ -952,7 +974,10 @@ client.on('interactionCreate', async (interaction) => {
           interaction.user.id
         );
 
-        console.log("✅ Inserare confirmată în Postgres pentru:", savedPg);
+        console.log('✅ Inserare confirmată în Postgres pentru:', savedPg);
+
+        addHoursToOfficer(interaction.user.id, 5);
+        console.log(`✅ +5 ore UP adăugate pentru ${interaction.user.tag}`);
 
         const embed = buildPoliceEmbed(
           '📁 Înregistrare de cazier adăugată',
@@ -1111,7 +1136,7 @@ client.on('interactionCreate', async (interaction) => {
 
     return interaction.reply({
       content: '❌ A apărut o eroare la executarea acțiunii.',
-     flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral,
     }).catch(() => null);
   }
 });
