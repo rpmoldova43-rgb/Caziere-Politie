@@ -61,7 +61,6 @@ const pool = new Pool({
 
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'police-db.json');
-const STATS_FILE = '/app/patrol-stats.json';
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(DB_FILE)) {
@@ -90,37 +89,6 @@ function writeDb(data) {
   fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
-function readStats() {
-  try {
-    if (!fs.existsSync(STATS_FILE)) return {};
-    return JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-function writeStats(data) {
-  fs.writeFileSync(STATS_FILE, JSON.stringify(data, null, 2), 'utf8');
-}
-
-function addHoursToOfficer(userId, hours) {
-  const stats = readStats();
-
-  if (!stats[userId]) {
-    stats[userId] = {
-      officerId: userId,
-      patrolCount: 0,
-      totalMs: 0,
-      lastPatrolAt: null,
-    };
-  }
-
-  const ms = hours * 60 * 60 * 1000;
-  stats[userId].totalMs += ms;
-
-  writeStats(stats);
-}
-
 async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS caziere (
@@ -132,18 +100,35 @@ async function initDatabase() {
     );
   `);
 
+  await pool.query(`
+    ALTER TABLE caziere
+    ADD COLUMN IF NOT EXISTS gamename TEXT;
+  `);
+
   console.log('✅ Tabelul caziere este gata.');
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS up_stats (
+      officer_id TEXT PRIMARY KEY,
+      officer_name TEXT,
+      patrol_count INTEGER NOT NULL DEFAULT 0,
+      total_ms BIGINT NOT NULL DEFAULT 0,
+      last_activity_at BIGINT
+    );
+  `);
+
+  console.log('✅ Tabelul up_stats este gata.');
 }
 
-async function addCazierToDb(userId, reason, addedBy) {
+async function addCazierToDb(gameName, reason, addedBy) {
   try {
     const result = await pool.query(
       `
-      INSERT INTO caziere (user_id, reason, added_by, added_at)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, user_id, added_by, added_at
+      INSERT INTO caziere (user_id, reason, added_by, added_at, gamename)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, user_id, reason, added_by, added_at, gamename
       `,
-      [userId, reason, addedBy || null, Date.now()]
+      [gameName, reason, addedBy || null, Date.now(), gameName]
     );
 
     console.log('✅ Cazier salvat în Postgres:', result.rows[0]);
@@ -152,6 +137,28 @@ async function addCazierToDb(userId, reason, addedBy) {
     console.error('❌ Eroare la salvarea cazierului în Postgres:', err);
     throw err;
   }
+}
+
+async function addUpHours(officerId, officerName, hours, patrolsToAdd = 0) {
+  const msToAdd = hours * 60 * 60 * 1000;
+
+  const result = await pool.query(
+    `
+    INSERT INTO up_stats (officer_id, officer_name, patrol_count, total_ms, last_activity_at)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (officer_id)
+    DO UPDATE SET
+      officer_name = EXCLUDED.officer_name,
+      patrol_count = up_stats.patrol_count + EXCLUDED.patrol_count,
+      total_ms = up_stats.total_ms + EXCLUDED.total_ms,
+      last_activity_at = EXCLUDED.last_activity_at
+    RETURNING officer_id, officer_name, patrol_count, total_ms, last_activity_at
+    `,
+    [officerId, officerName, patrolsToAdd, msToAdd, Date.now()]
+  );
+
+  console.log('✅ UP stats actualizat:', result.rows[0]);
+  return result.rows[0];
 }
 
 function parseRoleIds(raw) {
@@ -976,8 +983,8 @@ client.on('interactionCreate', async (interaction) => {
 
         console.log('✅ Inserare confirmată în Postgres pentru:', savedPg);
 
-        addHoursToOfficer(interaction.user.id, 5);
-        console.log(`✅ +5 ore UP adăugate pentru ${interaction.user.tag}`);
+        const upRow = await addUpHours(interaction.user.id, interaction.user.tag, 5, 0);
+        console.log(`✅ +5 ore UP adăugate în Postgres pentru ${interaction.user.tag}:`, upRow);
 
         const embed = buildPoliceEmbed(
           '📁 Înregistrare de cazier adăugată',
