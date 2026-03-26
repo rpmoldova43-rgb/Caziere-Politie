@@ -300,7 +300,7 @@ function buildCazierEntryText(entry, index) {
     `**Sancțiune:** ${shortText(entry.sanctiune, 300)}\n` +
     `**Ofițer:** <@${entry.officerId}>\n` +
     `**Data:** <t:${Math.floor(new Date(entry.createdAt).getTime() / 1000)}:f>\n` +
-    `**Detalii:** ${shortText(entry.detalii || 'Fără detalii', 500)}`
+    `**Dovada:** ${shortText(entry.detalii || 'Link Imgur', 500)}`
   );
 }
 
