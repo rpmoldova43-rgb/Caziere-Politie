@@ -755,7 +755,7 @@ client.on('interactionCreate', async (interaction) => {
           new ActionRowBuilder().addComponents(
             new TextInputBuilder()
               .setCustomId('detalii')
-              .setLabel('Detalii suplimentare')
+              .setLabel('Link dovadă (Imgur / Discord / etc.)')
               .setStyle(TextInputStyle.Paragraph)
               .setRequired(false),
           ),
